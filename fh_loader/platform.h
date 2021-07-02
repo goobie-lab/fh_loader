@@ -24,7 +24,8 @@
 
 #define GETCWD getcwd
 #define mkdir(x) mkdir(x, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)
-#define _stat64(a, b) stat
+#define _stat64 stat
+#define stat64 stat
 #endif
 
 #endif

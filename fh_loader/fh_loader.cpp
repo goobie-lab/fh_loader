@@ -91,8 +91,15 @@ gcc fh_loader.c -o fh_loader -lrt
 #include "platform.h"
 
 #define ZLPAWAREHOST 1
-#define SLASH '\\'    // defined differently below for LINUX
+#ifdef _MSC_VER // i.e. if compiling under Windows
+#define SLASH '\\'
+#define SLASH_STR "\\"
 #define WRONGSLASH '/'
+#else
+#define SLASH '/'
+#define SLASH_STR "/"
+#define WRONGSLASH '\\'
+#endif
 
 #define SIZE_T long long int
 #define SIZE_T_FORMAT "lld"    // Use in middle of string "Channel read "SIZE_T_FORMAT" bytes", at end of string "num_physical_partitions="SIZE_T_FORMAT
@@ -397,8 +404,6 @@ int ThisFileIsInFilterFiles(char *filename_only);
 int ThisFileIsInNotFilterFiles(char *filename_only);
 
 int HasAPathCharacter(char *sz, SIZE_T Length);
-int IsARelativePath(char *sz, SIZE_T Length);
-
 
 void PrettyPrintHexValueIntoTempBuffer(uint8 *temp_hash_val, int length, int offset, int MaxLength);
 
@@ -1035,7 +1040,7 @@ int HasAPathCharacter(char *sz, SIZE_T Length)
 		}
 	}
 
-	if (sz[0] == '\\' && sz[1] == '\\')
+	if (sz[0] == SLASH)
 	{
 		return 1;
 	}
@@ -1050,28 +1055,6 @@ int HasAPathCharacter(char *sz, SIZE_T Length)
 
 	return 0;
 }
-
-int IsARelativePath(char *sz, SIZE_T Length)
-{
-	SIZE_T i;
-
-	for (i = 0; i < Length; i++)
-	{
-		if (sz[i] == ':')
-		{
-			// could be c:\blah\blah
-			return 1;
-		}
-	}
-
-	if (sz[0] == '\\' && sz[1] == '\\')
-	{
-		return 1;
-	}
-
-	return 0;
-}
-
 
 
 SIZE_T IsEmptySpace(char c)
@@ -1703,7 +1686,7 @@ int getoptarg(int i, char * argv[], char * Option, SIZE_T SizeOfOpt, char * Argu
 
 	pch = strstr(Option, "=");
 
-	if (pch != '\0')
+	if (pch != NULL)
 	{
 		//printf("pch is NOT NULL\n\n");
 		// To be here pch is pointing at "=COM5", Option is pointing at "--port=COM5"
@@ -2791,9 +2774,9 @@ int main(int argc, char *argv[])
 	dbg(LOG_DEBUG, "Binary build date: %s @ %s\n", __DATE__, __TIME__);
 	dbg(LOG_DEBUG, "Build Version: %s\n", fh_loader_version);
 	dbg(LOG_INFO, "Current working dir (cwd): %s", cwd);
-	dbg(LOG_INFO, "Showing network mappings to allow debugging");
 
 #ifdef _MSC_VER // i.e. if compiling under Windows
+	dbg(LOG_INFO, "Showing network mappings to allow debugging");
 
 	fg = _popen("net use", "r");
 
@@ -2803,7 +2786,6 @@ int main(int argc, char *argv[])
 	}
 
 	_pclose(fg);
-
 #endif
 
 
@@ -3028,9 +3010,9 @@ int main(int argc, char *argv[])
 				ExitAndShowLog(1);
 			}
 
-			if (CopyString(flattenbuildvariant, "\\", strlen(flattenbuildvariant), 0, strlen("\\"), sizeof (flattenbuildvariant), strlen("\\")) == 0)
+			if (CopyString(flattenbuildvariant, SLASH_STR, strlen(flattenbuildvariant), 0, strlen(SLASH_STR), sizeof (flattenbuildvariant), strlen(SLASH_STR)) == 0)
 			{
-				dbg(LOG_ERROR, "Failed to copy string '%s' of length %"SIZE_T_FORMAT" bytes into flattenbuildvariant", "\\", strlen("\\"));
+				dbg(LOG_ERROR, "Failed to copy string '%s' of length %"SIZE_T_FORMAT" bytes into flattenbuildvariant", SLASH_STR, strlen(SLASH_STR));
 				ExitAndShowLog(1);
 			}
 
@@ -5427,13 +5409,13 @@ SIZE_T CopyString(char *Dest, char *Source, SIZE_T  Dstart, SIZE_T  Sstart, SIZE
 		return 1;
 	}
 
-	if (Dest == '\0')
+	if (Dest == NULL)
 	{
 		printf("CopyString Dest is NULL");  // Dest is null
 		ExitAndShowLog(1);
 	}
 
-	if (Source == '\0')
+	if (Source == NULL)
 	{
 		printf("CopyString Source is NULL");  // Source is null
 		ExitAndShowLog(1);
@@ -7008,7 +6990,7 @@ firehose_error_t GetNextPacket(void)
 
 			pch = strstr((char *)&ReadBuffer[PacketLoc], "</data>");
 
-			if (pch == '\0')
+			if (pch == NULL)
 				NeedToReadFromChannel = 1;
 			else if ((char *)pch - (char *)&ReadBuffer[PacketLoc] < 10 && strlen(pch) <= (XML_HEADER_LENGTH + 2 * XML_TAIL_LENGTH))
 				NeedToReadFromChannel = 1;
@@ -7553,15 +7535,6 @@ char* find_file(char *filename, char ShowToScreen)
 	// It is possible filename already has a path in it
 	if (HasAPathCharacter(filename, strlen(filename)))
 	{
-		//if(IsARelativePath(filename, strlen(filename)))
-
-		/*
-		if(stat(filename, &status_buf) == 0)
-		{
-
-		}
-		*/
-
 		fj = ReturnFileHandle(filename, MAX_PATH_SIZE, "rb"); // will EXIT if not successful
 
 		LastFindFileFileSize = ReturnFileSize(fj);
@@ -10262,7 +10235,7 @@ void ParseContentsXML(char *FileAndPath)
 	char StorageType[] = "emmc", SaveThis = 0; // 1=eMMC, 2=UFS, 3=NAND
 	int result;
 
-	if (FileAndPath == '\0' || strlen(FileAndPath) == 0)
+	if (FileAndPath == NULL || strlen(FileAndPath) == 0)
 		return;
 
 	dbg(LOG_INFO, "Attempting to access '%s'", FileAndPath);
